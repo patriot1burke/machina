@@ -1,6 +1,9 @@
 package io.quarkiverse.machina.test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.control.ActivateRequestContext;
@@ -19,8 +22,8 @@ import io.quarkiverse.machina.Signal;
 import io.quarkiverse.machina.SignalProducer;
 import io.quarkus.test.QuarkusUnitTest;
 
-public class BasicGearTest {
-    static Logger log = Logger.getLogger(BasicGearTest.class);
+public class ComplexMultipleOutputsTest {
+    static Logger log = Logger.getLogger(ComplexMultipleOutputsTest.class);
     @RegisterExtension
     static final QuarkusUnitTest unitTest = new QuarkusUnitTest()
             .setArchiveProducer(
@@ -28,9 +31,33 @@ public class BasicGearTest {
                             GearBunch.class, OrderProcessor.class));
 
     public record Customer(String name, String address) {
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass())
+                return false;
+            Customer customer = (Customer) o;
+            return Objects.equals(name, customer.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(name);
+        }
     }
 
     public record Product(String name, int price) {
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass())
+                return false;
+            Product product = (Product) o;
+            return Objects.equals(name, product.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(name);
+        }
     }
 
     public record Order(List<Product> product, Customer customer) {
@@ -38,18 +65,30 @@ public class BasicGearTest {
 
     @ApplicationScoped
     public static class GearBunch {
-
         @Gear("cust-gen")
         public Customer createCustomer(@Signal("name") String name, @Signal("address") String address) {
             System.out.println("\n********* Creating customer " + name);
             return new Customer(name, address);
         }
 
-        @Gear("on-sale")
-        public void onSale(SignalProducer<Product> products) {
-            System.out.println("\n********* On sale");
+        @Gear("inventory")
+        public void inventory(SignalProducer<Product> products) {
+            System.out.println("\n********* Inventoried");
             products.produce(new Product("iPhone", 1000));
             products.produce(new Product("iPad", 1200));
+        }
+
+        @Gear("price-picker")
+        @Signal("discount")
+        public double calculateDiscount() {
+            System.out.println("\n****** DISCOUNT");
+            return 0.1;
+        }
+
+        @Gear("sale")
+        public void sale(@Signal("discount") double discount, SignalProducer<Product> products) {
+            System.out.println("\n****** SALE");
+            products.produce(new Product("iWatch", (int) (500 * (1 - discount))));
         }
 
         @Gear("order-gen")
@@ -57,13 +96,12 @@ public class BasicGearTest {
             System.out.println("\n********* Creating order");
             return new Order(products, customer);
         }
-
     }
 
     @Machine
     public static interface OrderProcessor {
 
-        public Order buySaleItems(@Signal("name") String name, @Signal("address") String address);
+        Order buySaleItems(@Signal("name") String name, @Signal("address") String address);
 
     }
 
@@ -77,11 +115,15 @@ public class BasicGearTest {
         Order order = processor.buySaleItems("John", "123 Main St");
         System.out.println(order);
         Assertions.assertNotNull(order);
-        Assertions.assertEquals(2, order.product().size());
-        Assertions.assertEquals("iPhone", order.product().get(0).name());
-        Assertions.assertEquals("iPad", order.product().get(1).name());
+        Assertions.assertEquals(3, order.product().size());
+        Map<String, Product> productMap = order.product().stream().collect(Collectors.toMap(Product::name, p -> p));
+
+        Assertions.assertTrue(productMap.containsKey("iPhone"));
+        Assertions.assertEquals("iPad", productMap.get("iPad").name());
+        Assertions.assertEquals("iWatch", productMap.get("iWatch").name());
         Assertions.assertEquals("John", order.customer().name());
         Assertions.assertEquals("123 Main St", order.customer().address());
         System.out.println("============ end test()");
     }
+
 }

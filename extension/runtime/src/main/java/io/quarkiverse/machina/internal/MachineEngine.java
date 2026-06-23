@@ -126,10 +126,26 @@ public class MachineEngine {
         System.out.println("\tMatching:");
         Set<GearEntry> ready = gears.stream()
                 .filter(entry -> {
-                    System.out.println("\t\t" + entry.name() + " " + entry.inputs());
-                    return entry.inputs().stream().allMatch(outputs::containsKey);
+                    System.out.println(
+                            "\t\t" + entry.name() + " inputs " + entry.inputs() + " optional " + entry.optionalInputs());
+                    if (!entry.inputs().stream().allMatch(outputs::containsKey)) {
+                        return false;
+                    }
+                    for (String optional : entry.optionalInputs()) {
+                        if (!outputs.containsKey(optional)) {
+                            System.out.println("\t\toptional Input " + optional + " not in outputs");
+                            if (machineDefinition.gearOutputs().containsKey(optional)) {
+                                System.out.println("\t\t\tbut is in machine outputs");
+                                return false;
+                            } else {
+                                System.out.println("\t\t\tand is not in machine outputs");
+                            }
+                        }
+                    }
+                    return true;
                 })
                 .collect(Collectors.toSet());
+        System.out.println("\tMatched: " + ready);
         return ready;
     }
 }

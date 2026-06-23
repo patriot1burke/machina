@@ -4,6 +4,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
+import org.jboss.logging.Logger;
 
 import io.quarkiverse.machina.GearExecutionException;
 import io.quarkiverse.machina.SignalProducer;
@@ -11,6 +14,7 @@ import io.quarkiverse.machina.internal.MachineRecorder.GearSignal;
 import io.quarkus.arc.Arc;
 
 public class GearMethodExecutor implements GearExecutor {
+    static Logger log = Logger.getLogger(GearMethodExecutor.class);
     final Class<?> clazz;
     final String methodName;
     final Method method;
@@ -56,6 +60,27 @@ public class GearMethodExecutor implements GearExecutor {
             } else if (parameter.signalType() == MachineRecorder.SignalType.PRODUCER) {
                 SignalProducer producer = signal -> context.output(parameter.signalName(), signal);
                 params.add(producer);
+            } else if (parameter.signalType() == MachineRecorder.SignalType.OPTIONAL_INPUT) {
+                log.info(methodName + " Optional input: " + parameter.signalName());
+                List<Object> input = context.input(parameter.signalName());
+                if (input == null) {
+                    log.info("No optional input for " + parameter.signalName());
+                    params.add(Optional.empty());
+                } else if (input.size() > 1) {
+                    throw new RuntimeException("Expected only 1 optional input for " + parameter.signalName() + "for method "
+
+                            + methodName + " but got " + input.size());
+                } else if (input.size() == 1) {
+                    log.info("Optional Input for " + parameter.signalName() + " is " + input.get(0));
+                    params.add(Optional.of(input.get(0)));
+                } else {
+                    log.info("Optional Input for " + parameter.signalName() + " is empty");
+                    params.add(Optional.empty());
+                }
+            } else if (parameter.signalType() == MachineRecorder.SignalType.OPTIONAL_INPUT_LIST) {
+                List<Object> input = context.input(parameter.signalName());
+                Optional<List<Object>> optional = input == null ? Optional.empty() : Optional.of(input);
+                params.add(optional);
             } else {
                 throw new RuntimeException(
                         "Unsupported parameter type " + parameter.signalType() + " for method " + methodName);

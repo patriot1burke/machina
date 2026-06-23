@@ -2,10 +2,12 @@ package io.quarkiverse.machina.deployment;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import jakarta.enterprise.context.RequestScoped;
@@ -113,6 +115,18 @@ public class GearDeploymentProcessor {
                 signalType = SignalType.INPUT_LIST;
             } else if (clazz.equals(SignalProducer.class)) {
                 signalType = SignalType.PRODUCER;
+            } else if (clazz.equals(Optional.class)) {
+                ParameterizedType pt = (ParameterizedType) method.getGenericParameterTypes()[i];
+                java.lang.reflect.Type optionType = pt.getActualTypeArguments()[0];
+                if (optionType instanceof Class<?> optionClazz) {
+                    signalType = SignalType.OPTIONAL_INPUT;
+                } else {
+                    pt = (ParameterizedType) optionType;
+                    if (pt.getRawType().equals(List.class)) {
+                        signalType = SignalType.OPTIONAL_INPUT_LIST;
+                    }
+
+                }
             } else {
                 signalType = SignalType.INPUT;
             }

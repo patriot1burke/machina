@@ -4,6 +4,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
+import java.util.Optional;
 
 import io.quarkiverse.machina.Signal;
 import io.quarkiverse.machina.SignalProducer;
@@ -64,8 +65,15 @@ public class SignalUtil {
 
     public static Type signalType(Type type) {
         Class<?> raw = toClass(type);
-        if ((List.class.equals(raw) || SignalProducer.class.equals(raw)) && type instanceof ParameterizedType pt) {
+        if ((List.class.equals(raw) || SignalProducer.class.equals(raw))
+                && type instanceof ParameterizedType pt) {
             return pt.getActualTypeArguments()[0];
+        } else if (Optional.class.equals(raw)
+                && type instanceof ParameterizedType pt) {
+            Type optionalType = pt.getActualTypeArguments()[0];
+            if (List.class.equals(toClass(optionalType)) && optionalType instanceof ParameterizedType pt2) {
+                return pt2.getActualTypeArguments()[0];
+            }
         }
         return null;
     }

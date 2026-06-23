@@ -1,7 +1,6 @@
 package io.quarkiverse.machina.internal;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -9,16 +8,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import io.quarkiverse.machina.internal.MachineRecorder.GearEntry;
 
 public class GearContext {
-    final Map<String, List<Object>> inputs = new HashMap<>();
+    final Map<String, List<Object>> inputs;
     final Map<String, List<Object>> outputs = new ConcurrentHashMap<>();
     final GearEntry gear;
     final MachineEngine machineEngine;
     Throwable error;
 
     public GearContext(GearEntry gear, MachineEngine machineEngine) {
-        for (String input : gear.inputs()) {
-            inputs.put(input, machineEngine.outputs.get(input));
-        }
+        inputs = machineEngine.outputs;
         this.gear = gear;
         this.machineEngine = machineEngine;
     }

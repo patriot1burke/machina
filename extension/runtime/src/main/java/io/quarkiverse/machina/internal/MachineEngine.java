@@ -1,6 +1,7 @@
 package io.quarkiverse.machina.internal;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -14,9 +15,12 @@ import org.eclipse.microprofile.context.ManagedExecutor;
 import org.jboss.logging.Logger;
 
 import io.quarkiverse.machina.GearExecutionException;
+import io.quarkiverse.machina.GearTrigger;
 import io.quarkiverse.machina.Signals;
 import io.quarkiverse.machina.internal.MachineRecorder.GearEntry;
 import io.quarkiverse.machina.internal.MachineRecorder.MachineDefinition;
+import io.quarkus.arc.Arc;
+import io.quarkus.arc.impl.LazyValue;
 
 public class MachineEngine {
     static Logger log = Logger.getLogger(MachineEngine.class);
@@ -29,21 +33,77 @@ public class MachineEngine {
     BlockingQueue<GearContext> queue = new LinkedBlockingQueue<>();
     Set<GearEntry> gears = new HashSet<>();
 
-    public MachineEngine(ManagedExecutor managedExecutor, MachineDefinition machineDefinition) {
+    static LazyValue<ManagedExecutor> lazyExecutor = new LazyValue<>(() -> {
+        return Arc.container().instance(ManagedExecutor.class).get();
+    });
+
+    public static Signals runDefinition(MachineDefinition def, Signals inputs) {
+        return new MachineEngine(lazyExecutor.get(), def).execute(inputs);
+    }
+
+    public static GearTrigger.Result run(Signals input) {
+        Set<GearEntry> candidates = new HashSet<>(MachineRecorder.gearEntries);
+        Set<String> inputSignals = new HashSet<>(input.signals().keySet());
+        Set<String> consumedInputs = new HashSet<>();
+        Set<GearEntry> gears = new HashSet<>();
+        boolean newOutputs;
+        do {
+            newOutputs = false;
+            List<GearEntry> level = new ArrayList<>();
+            for (GearEntry gear : candidates) {
+                if (gear.inputs().containsAll(inputSignals)) {
+                    newOutputs = true;
+                    level.add(gear);
+                    gears.add(gear);
+                    consumedInputs.addAll(gear.inputs());
+                    consumedInputs.addAll(gear.optionalInputs());
+                }
+            }
+            if (newOutputs) {
+                candidates.removeAll(level);
+                for (GearEntry gear : level) {
+                    inputSignals.addAll(gear.outputs());
+                }
+            }
+        } while (newOutputs);
+        Map<String, Set<GearEntry>> gearOutputs = new HashMap<>();
+
+        gears.forEach(gear -> {
+            gear.outputs().forEach(output -> gearOutputs.computeIfAbsent(output, k -> new HashSet<>()).add(gear));
+        });
+        MachineDefinition machineDefinition = new MachineDefinition(null, null, gears, gearOutputs, null);
+        MachineEngine engine = new MachineEngine(lazyExecutor.get(), machineDefinition);
+        engine.executeGears(input);
+        return new GearTrigger.Result(new Signals(engine.outputs), consumedInputs,
+                gears.stream().map(GearEntry::name).collect(Collectors.toSet()));
+    }
+
+    MachineEngine(ManagedExecutor managedExecutor, MachineDefinition machineDefinition) {
         this.managedExecutor = managedExecutor;
         this.machineDefinition = machineDefinition;
     }
 
-    public Signals execute(Signals inputs) {
+    Signals execute(Signals inputs) {
+        System.out.println("Executing engine: \n");
 
-        System.out.println("Executing engine with inputs: \n" + inputs);
+        System.out.println("Desired outputs: " + machineDefinition.desiredOutputs());
+        executeGears(inputs);
+        Signals result = new Signals();
+        machineDefinition.desiredOutputs().forEach(k -> {
+            if (outputs.containsKey(k))
+                result.add(k, outputs.get(k));
+        });
+        return result;
+    }
+
+    private void executeGears(Signals inputs) {
+        System.out.println("Inputs: \n\t" + inputs);
+        System.out.println("Number of gears: " + machineDefinition.gearEntries().size());
+        System.out.println("Gears: " + machineDefinition.gearEntries());
         outputs.putAll(inputs.signals());
         machineDefinition.gearOutputs().forEach((k, v) -> {
             producers.computeIfAbsent(k, k1 -> new HashSet<>()).addAll(v);
         });
-        System.out.println("Number of gears: " + machineDefinition.gearEntries().size());
-        System.out.println("Gears: " + machineDefinition.gearEntries());
-        System.out.println("Desired outputs: " + machineDefinition.desiredOutputs());
         gears.addAll(machineDefinition.gearEntries());
         Set<GearEntry> readyGears = readyGears();
         if (readyGears.isEmpty()) {
@@ -55,16 +115,10 @@ public class MachineEngine {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        Signals result = new Signals();
-        machineDefinition.desiredOutputs().forEach(k -> {
-            if (outputs.containsKey(k))
-                result.add(k, outputs.get(k));
-        });
-        return result;
     }
 
     void executeGear(GearEntry gear) {
-        GearContext context = new GearContext(gear, this);
+        GearContext context = new GearContext(gear, new Signals(this.outputs));
         try {
             gear.executor().execute(context);
         } catch (Exception e) {

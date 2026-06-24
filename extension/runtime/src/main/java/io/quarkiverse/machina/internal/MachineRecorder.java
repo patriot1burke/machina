@@ -48,10 +48,12 @@ public class MachineRecorder {
         for (String output : entry.outputs) {
             gearOutputs.computeIfAbsent(output, k -> new HashSet<>()).add(entry);
         }
+        gearEntries.add(entry);
     }
 
     // what gears produce what outputs
     static Map<String, Set<GearEntry>> gearOutputs = new HashMap<>();
+    static Set<GearEntry> gearEntries = new HashSet<>();
 
     public record MachineDefinition(Set<String> desiredOutputs, List<String> inputs, Set<GearEntry> gearEntries,
             Map<String, Set<GearEntry>> gearOutputs, Map<GearEntry, Set<String>> unresolvable) {

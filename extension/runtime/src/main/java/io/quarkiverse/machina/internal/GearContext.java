@@ -5,23 +5,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import io.quarkiverse.machina.Signals;
 import io.quarkiverse.machina.internal.MachineRecorder.GearEntry;
 
 public class GearContext {
-    final Map<String, List<Object>> inputs;
+    final Signals inputs;
     final Map<String, List<Object>> outputs = new ConcurrentHashMap<>();
     final GearEntry gear;
-    final MachineEngine machineEngine;
     Throwable error;
 
-    public GearContext(GearEntry gear, MachineEngine machineEngine) {
-        inputs = machineEngine.outputs;
+    public GearContext(GearEntry gear, Signals inputs) {
+        this.inputs = inputs;
         this.gear = gear;
-        this.machineEngine = machineEngine;
     }
 
     public List<Object> input(String key) {
-        return inputs.get(key);
+        return inputs.signals().get(key);
     }
 
     public void output(String key, Object value) {

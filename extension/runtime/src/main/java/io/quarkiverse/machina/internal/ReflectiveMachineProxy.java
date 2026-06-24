@@ -80,8 +80,7 @@ public class ReflectiveMachineProxy implements InvocationHandler {
         for (int i = 0; i < args.length; i++) {
             consumers.get(i).accept(inputs, args[i]);
         }
-        MachineEngine machineEngine = new MachineEngine(managedExecutor.get(), machineDefinition);
-        Signals outputs = machineEngine.execute(inputs);
+        Signals outputs = MachineEngine.runDefinition(machineDefinition, inputs);
         if (method.getReturnType() == ProcessorResult.class) {
             return (ProcessorResult) () -> outputs;
         } else if (method.getReturnType() == void.class) {

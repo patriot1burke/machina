@@ -6,7 +6,15 @@ import java.util.List;
 import java.util.Map;
 
 public class Signals {
-    final Map<String, List<Object>> signals = new HashMap<>();
+    final Map<String, List<Object>> signals;
+
+    public Signals() {
+        signals = new HashMap<>();
+    }
+
+    public Signals(Map<String, List<Object>> signals) {
+        this.signals = signals;
+    }
 
     public Signals add(String key, List<Object> value) {
         signals.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value);
@@ -18,7 +26,7 @@ public class Signals {
         return this;
     }
 
-    private Signals addAll(Map<String, List<Object>> inputs) {
+    public Signals addAll(Map<String, List<Object>> inputs) {
         inputs.forEach(this::add);
         return this;
     }

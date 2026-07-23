@@ -1,4 +1,4 @@
-* Quarkus Machina
+# Quarkus Machina
 
 This project was inspired by the Quarkus core build processor, specifically `@BuildStep` (if you're familiar with Quarkus).
 The goal is to bring this build pattern of Quarkus and turn it into something that can be used within an application with 

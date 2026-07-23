@@ -51,7 +51,7 @@ public class MachineEngine {
             newOutputs = false;
             List<GearEntry> level = new ArrayList<>();
             for (GearEntry gear : candidates) {
-                if (gear.inputs().containsAll(inputSignals)) {
+                if (inputSignals.containsAll(gear.inputs())) {
                     newOutputs = true;
                     level.add(gear);
                     gears.add(gear);
@@ -74,7 +74,7 @@ public class MachineEngine {
         MachineDefinition machineDefinition = new MachineDefinition(null, null, gears, gearOutputs, null);
         MachineEngine engine = new MachineEngine(lazyExecutor.get(), machineDefinition);
         engine.executeGears(input);
-        return new GearTrigger.Result(new Signals(engine.outputs), consumedInputs,
+        return new GearTrigger.Result(new Signals(engine.gatheredOutputs), consumedInputs,
                 gears.stream().map(GearEntry::name).collect(Collectors.toSet()));
     }
 

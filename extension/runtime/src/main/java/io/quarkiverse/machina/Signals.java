@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class Signals {
     final Map<String, List<Object>> signals;
@@ -43,10 +44,20 @@ public class Signals {
         return this;
     }
 
-    public static Signals of(Object... objects) {
-        Signals inputs = new Signals();
-        inputs.add(objects);
-        return inputs;
+    public List<Object> signal(String signalName) {
+        return signals.get(signalName);
+    }
+
+    public boolean hasSignal(String signalName) {
+        return signals.containsKey(signalName);
+    }
+
+    public Set<String> signalNames() {
+        return signals.keySet();
+    }
+
+    public int numSignals() {
+        return signals.size();
     }
 
     public Map<String, List<Object>> signals() {
